@@ -1,0 +1,176 @@
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Routing Config Page</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+</head>
+
+<body>
+    <h1>Routing Configuration Page</h1>
+    <nav style="width: 500px; display: flex; gap: 0.5rem;">
+        <a href="/">Home</a> | <a href="/routing_config">Routing Config</a> | <a href="/rules">Rules</a> | <a
+            href="/interface">Interface</a>
+    </nav>
+
+    <h2>External Interface Routing Table</h2>
+    <table border="1" style="width: 600px;">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>IP</th>
+                <th>Subnet</th>
+                <th>Next Hop</th>
+                <th>Num Hops</th>
+            </tr>
+        </thead>
+        <tbody id="external-routes-body">
+            <tr>
+                <td colspan="5">Loading routes...</td>
+            </tr>
+        </tbody>
+    </table>
+    <br>
+    <h2>Internal Interface Routing Table</h2>
+    <table border="1" style="width: 600px; ">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>IP</th>
+                <th>Subnet</th>
+                <th>Next Hop</th>
+                <th>Num Hops</th>
+            </tr>
+        </thead>
+        <tbody id="internal-routes-body" style="width: 600px;">
+            <tr>
+                <td colspan="5">Loading routes...</td>
+            </tr>
+        </tbody>
+    </table>
+
+
+    <h3>Add New Route</h3>
+    <p>
+        Interface: <input type="radio" name="new-interface" id="new-interface-internal">Internal | <input type="radio"
+            name="new-interface" id="new-interface-external">External<br>
+    <div style="width: 400px;">
+        IP: <input type="text" id="new-ip" placeholder="e.g. 10.0.0.0"><br>
+        Subnet: <input type="number" id="new-subnet" placeholder="e.g. 24"><br>
+        Next hop: <input type="text" id="new-next-hop" placeholder="e.g. 10.0.0.0"><br>
+        Num hops: <input type="number" id="new-num-hops" placeholder="e.g. 64"><br>
+    </div>
+
+    <button id="add-route-btn">Add Route</button>
+    </p>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            function loadRoutes(type) {
+                var routesBody = document.getElementById(`${type}-routes-body`);
+                routesBody.innerHTML = "";
+                fetch(`/api/routes/${type}`)
+                    .then(function (response) { return response.json(); })
+                    .then(function (data) {
+                        if (data.routes.length === 0) {
+                            let row = document.createElement('tr');
+                            row.innerHTML = "<td colspan='5'>No routes available</td>";
+                            routesBody.appendChild(row);
+                        } else {
+                            data.routes.forEach(function (route) {
+                                let row = document.createElement('tr');
+
+                                let cellId = document.createElement('td');
+                                cellId.textContent = route.id;
+                                row.appendChild(cellId);
+
+                                let cellDest = document.createElement('td');
+                                cellDest.textContent = route.subnet ? route.ip : "-";
+                                row.appendChild(cellDest);
+
+                                let cellSubnet = document.createElement('td');
+                                cellSubnet.textContent = route.subnet ? route.subnet : "-";
+                                row.appendChild(cellSubnet);
+
+                                let cellNextHop = document.createElement('td');
+                                cellNextHop.textContent = route.next_hop;
+                                row.appendChild(cellNextHop);
+
+                                let cellNumHops = document.createElement('td');
+                                cellNumHops.textContent = route.num_hops;
+                                row.appendChild(cellNumHops);
+
+                                let cellActions = document.createElement('td');
+                                let delBtn = document.createElement('button');
+                                delBtn.textContent = "Delete";
+                                delBtn.addEventListener("click", function () {
+                                    fetch(`/api/routes/${route.id}/${type}`, { method: 'DELETE' })
+                                        .then(function (response) {
+                                            if (!response.ok) throw new Error("Delete failed");
+                                            return response.json();
+                                        })
+                                        .then(function (result) {
+                                            alert("Route " + route.id + " deleted.");
+                                            loadRoutes("internal");
+                                            loadRoutes("external");
+                                        })
+                                        .catch(function (error) {
+                                            alert("Error deleting route " + route.id);
+                                        });
+                                });
+                                cellActions.appendChild(delBtn);
+                                row.appendChild(cellActions);
+
+                                routesBody.appendChild(row);
+                            });
+                        }
+                    })
+                    .catch(function (err) {
+                        let row = document.createElement('tr');
+                        row.innerHTML = "<td colspan='5'>Error retrieving routes</td>";
+                        routesBody.appendChild(row);
+                    });
+            }
+
+            loadRoutes("internal");
+            loadRoutes("external");
+
+            document.getElementById('add-route-btn').addEventListener('click', function () {
+                var interfaceInternal = document.getElementById('new-interface-internal').checked;
+                var interfaceExternal = document.getElementById('new-interface-external').checked;
+                var interface;
+                if (interfaceInternal) {
+                    interface = 1;
+                } else if (interfaceExternal) {
+                    interface = 0;
+                } else {
+                    alert("Invalid interface supplied.");
+                    return;
+                }
+                var ip = document.getElementById('new-ip').value;
+                var subnet = Number(document.getElementById('new-subnet').value);
+                var next_hop = document.getElementById('new-next-hop').value;
+                var num_hops = Number(document.getElementById('new-num-hops').value);
+                fetch(`/api/routes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ interface: interface, ip: ip, subnet: subnet, next_hop: next_hop, num_hops: num_hops })
+                })
+                    .then(function (response) {
+                        if (!response.ok) throw new Error('Add route failed');
+                        return response.json();
+                    })
+                    .then(function (result) {
+                        alert("Route added successfully.");
+                        loadRoutes("internal");
+                        loadRoutes("external");
+                    })
+                    .catch(function (err) {
+                        alert("Error adding route");
+                    });
+            });
+        });
+    </script>
+</body>
+
+</html>

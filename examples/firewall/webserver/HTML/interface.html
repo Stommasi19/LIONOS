@@ -1,0 +1,63 @@
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Firewall Config</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+</head>
+
+<body>
+    <h1>Firewall Configuration</h1>
+    <nav style="width: 500px; display: flex; gap: 0.5rem;">
+        <a href="/">Home</a> | <a href="/routing_config">Routing Config</a> | <a href="/rules">Rules</a> | <a
+            href="/interface">Interface</a>
+    </nav>
+    <div id="interfaces-container" style="width: 600px; display: flex;">
+        <table border="1">
+            <thead>
+                <tr>
+                    <th>Interface</th>
+                    <th>MAC Address</th>
+                    <th>Network IP</th>
+                </tr>
+            </thead>
+            <tbody id="interfaces-body">
+                <tr>
+                    <td colspan="3">Loading interface data...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            var tbody = document.getElementById('interfaces-body');
+            tbody.innerHTML = "";
+            fetch('/api/interfaces/count')
+                .then(response => response.json())
+                .then(data => {
+                    for (let i = 0; i < data.count; i++) {
+                        fetch('/api/interfaces/' + i)
+                            .then(response => response.json())
+                            .then(info => {
+                                let row = document.createElement('tr');
+                                row.innerHTML = "<td>" + info.interface + "</td>" +
+                                    "<td>" + info.mac + "</td>" +
+                                    "<td>" + info.ip + "</td>";
+                                tbody.appendChild(row);
+                            })
+                            .catch(err => {
+                                alert("Error" + info.error);
+                                let row = document.createElement('tr');
+                                row.innerHTML = "<td colspan='3'>Error retrieving interface " + i + "</td>";
+                                tbody.appendChild(row);
+                            });
+                    }
+                })
+                .catch(err => {
+                    tbody.innerHTML = "<tr><td colspan='3'>Error retrieving interface count</td></tr>";
+                });
+        });
+    </script>
+</body>
+
+</html>

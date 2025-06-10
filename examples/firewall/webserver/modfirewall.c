@@ -14,7 +14,8 @@
 #include <lions/firewall/routing.h>
 
 /* Firewall internal errors */
-typedef enum {
+typedef enum
+{
     OS_ERR_OKAY = 0,          /* No error */
     OS_ERR_INVALID_INTERFACE, /* Invalid interface ID */
     OS_ERR_INVALID_PROTOCOL,  /* Invalid protocol number */
@@ -41,58 +42,63 @@ static const char *fw_os_err_str[] = {
     "Route number supplied is greater than the number of routes.",
     "Rule number supplied is greater than the number of rules.",
     "Internal data structures are already at capacity.", // TODO we can check
-    "Unknown internal error."
-};
+    "Unknown internal error."};
 
 /* Convert a routing error to OS error */
-fw_os_err_t fw_routing_err_to_os_err(fw_routing_err_t routing_err) {
-    switch (routing_err) {
-        case ROUTING_ERR_OKAY:
-            return OS_ERR_OKAY;
-        case ROUTING_ERR_FULL:
-            return OS_ERR_OUT_OF_MEMORY;
-        case ROUTING_ERR_DUPLICATE:
-            return OS_ERR_DUPLICATE;
-        case ROUTING_ERR_CLASH:
-            return OS_ERR_CLASH;
-        case ROUTING_ERR_INVALID_CHILD:
-            return OS_ERR_INTERNAL_ERROR;
-        case ROUTING_ERR_INVALID_ID:
-            return OS_ERR_INVALID_ROUTE_ID;
-        default:
-            return OS_ERR_INTERNAL_ERROR;
+fw_os_err_t fw_routing_err_to_os_err(fw_routing_err_t routing_err)
+{
+    switch (routing_err)
+    {
+    case ROUTING_ERR_OKAY:
+        return OS_ERR_OKAY;
+    case ROUTING_ERR_FULL:
+        return OS_ERR_OUT_OF_MEMORY;
+    case ROUTING_ERR_DUPLICATE:
+        return OS_ERR_DUPLICATE;
+    case ROUTING_ERR_CLASH:
+        return OS_ERR_CLASH;
+    case ROUTING_ERR_INVALID_CHILD:
+        return OS_ERR_INTERNAL_ERROR;
+    case ROUTING_ERR_INVALID_ID:
+        return OS_ERR_INVALID_ROUTE_ID;
+    default:
+        return OS_ERR_INTERNAL_ERROR;
     }
 }
 
 /* Convert a filter error to OS error */
-fw_os_err_t filter_err_to_os_err(fw_filter_err_t filter_err) {
-    switch (filter_err) {
-        case FILTER_ERR_OKAY:
-            return OS_ERR_OKAY;
-        case FILTER_ERR_FULL:
-            return OS_ERR_OUT_OF_MEMORY;
-        case FILTER_ERR_DUPLICATE:
-            return OS_ERR_DUPLICATE;
-        case FILTER_ERR_CLASH:
-            return OS_ERR_CLASH;
-        case FILTER_ERR_INVALID_RULE_ID:
-            return OS_ERR_INVALID_RULE_ID;
-        default:
-            return OS_ERR_INTERNAL_ERROR;
+fw_os_err_t filter_err_to_os_err(fw_filter_err_t filter_err)
+{
+    switch (filter_err)
+    {
+    case FILTER_ERR_OKAY:
+        return OS_ERR_OKAY;
+    case FILTER_ERR_FULL:
+        return OS_ERR_OUT_OF_MEMORY;
+    case FILTER_ERR_DUPLICATE:
+        return OS_ERR_DUPLICATE;
+    case FILTER_ERR_CLASH:
+        return OS_ERR_CLASH;
+    case FILTER_ERR_INVALID_RULE_ID:
+        return OS_ERR_INVALID_RULE_ID;
+    default:
+        return OS_ERR_INTERNAL_ERROR;
     }
 }
 
 extern fw_webserver_config_t firewall_config;
 
-typedef struct fw_webserver_interface_state {
-    fw_routing_table_t routing_table;
+typedef struct fw_webserver_interface_state
+{
+    fw_routing_list_t routing_list;
     uint16_t num_routes;
-  
+
     fw_filter_state_t filter_states[FW_MAX_FILTERS];
     uint16_t num_rules[FW_MAX_FILTERS];
 } fw_webserver_interface_state_t;
 
-typedef struct fw_webserver_state {
+typedef struct fw_webserver_state
+{
     uint32_t ip;
     uint8_t mac_addr[ETH_HWADDR_LEN];
 
@@ -101,40 +107,46 @@ typedef struct fw_webserver_state {
 
 fw_webserver_state_t webserver_state;
 
-void fw_webserver_init(void) {
+void fw_webserver_init(void)
+{
     webserver_state.ip = firewall_config.interfaces[firewall_config.interface].ip;
     sddf_memcpy(webserver_state.mac_addr, firewall_config.interfaces[firewall_config.interface].mac_addr, ETH_HWADDR_LEN);
-    
-    for (uint8_t i = 0; i < FW_NUM_INTERFACES; i++) {
-        fw_routing_entry_t default_entry = {true, ROUTING_OUT_EXTERNAL, 0, 0, 0, 0};
-        fw_routing_table_init(&webserver_state.interfaces[i].routing_table, default_entry,
-                        firewall_config.interfaces[i].router.routing_table.vaddr,
-                        firewall_config.interfaces[i].router.routing_table_capacity);
 
-        for (uint8_t j = 0; j < firewall_config.interfaces[i].num_filters; j++) {
+    for (uint8_t i = 0; i < FW_NUM_INTERFACES; i++)
+    {
+        routing_entry_node_t default_entry = {true, ROUTING_OUT_EXTERNAL, 0, 0, 0, 0};
+        fw_routing_list_init(&webserver_state.interfaces[i].routing_list, default_entry,
+                             firewall_config.interfaces[i].router.routing_list.vaddr,
+                             firewall_config.interfaces[i].router.routing_list_capacity);
+
+        for (uint8_t j = 0; j < firewall_config.interfaces[i].num_filters; j++)
+        {
             fw_filter_state_init(&webserver_state.interfaces[i].filter_states[j],
-                                    firewall_config.interfaces[i].filters[j].rules.vaddr,
-                                    firewall_config.interfaces[i].filters[j].rules_capacity, 0, 0, 0,
-                                    firewall_config.interfaces[i].filters[j].default_action);
+                                 firewall_config.interfaces[i].filters[j].rules.vaddr,
+                                 firewall_config.interfaces[i].filters[j].rules_capacity, 0, 0, 0,
+                                 firewall_config.interfaces[i].filters[j].default_action);
         }
     }
 
-  /* Currently harcode pre-existing internal route to webserver. */
-  webserver_state.interfaces[1].num_routes = 1;
+    /* Currently harcode pre-existing internal route to webserver. */
+    webserver_state.interfaces[1].num_routes = 1;
 }
 
 /* Get MAC address for network interface */
-STATIC mp_obj_t interface_get_mac(mp_obj_t interface_idx_in) {
+STATIC mp_obj_t interface_get_mac(mp_obj_t interface_idx_in)
+{
     uint8_t interface_idx = mp_obj_get_int(interface_idx_in);
-    if (interface_idx >= FW_NUM_INTERFACES) {
+    if (interface_idx >= FW_NUM_INTERFACES)
+    {
         sddf_dprintf("WEBSERVER|LOG: %s\n",
-                    fw_os_err_str[OS_ERR_INVALID_INTERFACE]);
+                     fw_os_err_str[OS_ERR_INVALID_INTERFACE]);
         mp_raise_OSError(OS_ERR_INVALID_INTERFACE);
         return mp_const_none;
     }
 
     mp_obj_t tuple[ETH_HWADDR_LEN];
-    for (uint8_t i = 0; i < ETH_HWADDR_LEN; i++) {
+    for (uint8_t i = 0; i < ETH_HWADDR_LEN; i++)
+    {
         tuple[i] = mp_obj_new_int_from_uint(firewall_config.interfaces[interface_idx].mac_addr[i]);
     }
 
@@ -144,11 +156,13 @@ STATIC mp_obj_t interface_get_mac(mp_obj_t interface_idx_in) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(interface_get_mac_obj, interface_get_mac);
 
 /* Get IP address for network interface */
-STATIC mp_obj_t interface_get_ip(mp_obj_t interface_idx_in) {
+STATIC mp_obj_t interface_get_ip(mp_obj_t interface_idx_in)
+{
     uint8_t interface_idx = mp_obj_get_int(interface_idx_in);
-    if (interface_idx >= FW_NUM_INTERFACES) {
+    if (interface_idx >= FW_NUM_INTERFACES)
+    {
         sddf_dprintf("WEBSERVER|LOG: %s\n",
-                    fw_os_err_str[OS_ERR_INVALID_INTERFACE]);
+                     fw_os_err_str[OS_ERR_INVALID_INTERFACE]);
         mp_raise_OSError(OS_ERR_INVALID_INTERFACE);
         return mp_const_none;
     }
@@ -159,18 +173,21 @@ STATIC mp_obj_t interface_get_ip(mp_obj_t interface_idx_in) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(interface_get_ip_obj, interface_get_ip);
 
 /* Add a route to the routing table for a network interface */
-STATIC mp_obj_t route_add(mp_uint_t n_args, const mp_obj_t *args) {
-    if (n_args != 5) {
+STATIC mp_obj_t route_add(mp_uint_t n_args, const mp_obj_t *args)
+{
+    if (n_args != 5)
+    {
         sddf_dprintf("WEBSERVER|LOG: %s\n",
-                    fw_os_err_str[OS_ERR_INVALID_ARGUMENTS]);
+                     fw_os_err_str[OS_ERR_INVALID_ARGUMENTS]);
         mp_raise_OSError(OS_ERR_INVALID_ARGUMENTS);
         return mp_const_none;
     }
 
     uint8_t interface_idx = mp_obj_get_int(args[0]);
-    if (interface_idx >= FW_NUM_INTERFACES) {
+    if (interface_idx >= FW_NUM_INTERFACES)
+    {
         sddf_dprintf("WEBSERVER|LOG: %s\n",
-                    fw_os_err_str[OS_ERR_INVALID_INTERFACE]);
+                     fw_os_err_str[OS_ERR_INVALID_INTERFACE]);
         mp_raise_OSError(OS_ERR_INVALID_INTERFACE);
         return mp_const_none;
     }
@@ -189,7 +206,8 @@ STATIC mp_obj_t route_add(mp_uint_t n_args, const mp_obj_t *args) {
         microkit_ppcall(firewall_config.interfaces[interface_idx].router.routing_ch,
                         microkit_msginfo_new(FW_ADD_ROUTE, 5));
     fw_os_err_t os_err = fw_routing_err_to_os_err(seL4_GetMR(ROUTER_RET_ERR));
-    if (os_err != OS_ERR_OKAY) {
+    if (os_err != OS_ERR_OKAY)
+    {
         sddf_dprintf("WEBSERVER|LOG: %s\n", fw_os_err_str[os_err]);
         mp_raise_OSError(os_err);
         return mp_obj_new_int_from_uint(os_err);
@@ -203,11 +221,13 @@ STATIC mp_obj_t route_add(mp_uint_t n_args, const mp_obj_t *args) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR(route_add_obj, 5, route_add);
 
 /* Delete a route from the interface routing table */
-STATIC mp_obj_t route_delete(mp_obj_t interface_idx_in, mp_obj_t route_id_in) {
-    uint8_t interface_idx =   mp_obj_get_int(interface_idx_in);
-    if (interface_idx >= FW_NUM_INTERFACES) {
+STATIC mp_obj_t route_delete(mp_obj_t interface_idx_in, mp_obj_t route_id_in)
+{
+    uint8_t interface_idx = mp_obj_get_int(interface_idx_in);
+    if (interface_idx >= FW_NUM_INTERFACES)
+    {
         sddf_dprintf("WEBSERVER|LOG: %s\n",
-                    fw_os_err_str[OS_ERR_INVALID_INTERFACE]);
+                     fw_os_err_str[OS_ERR_INVALID_INTERFACE]);
         mp_raise_OSError(OS_ERR_INVALID_INTERFACE);
         return mp_const_none;
     }
@@ -219,7 +239,8 @@ STATIC mp_obj_t route_delete(mp_obj_t interface_idx_in, mp_obj_t route_id_in) {
         microkit_ppcall(firewall_config.interfaces[interface_idx].router.routing_ch,
                         microkit_msginfo_new(FW_DEL_ROUTE, 1));
     fw_os_err_t os_err = fw_routing_err_to_os_err(seL4_GetMR(ROUTER_RET_ERR));
-    if (os_err != OS_ERR_OKAY) {
+    if (os_err != OS_ERR_OKAY)
+    {
         sddf_dprintf("WEBSERVER|LOG: %s\n", fw_os_err_str[os_err]);
         mp_raise_OSError(os_err);
         return mp_obj_new_int_from_uint(os_err);
@@ -232,11 +253,13 @@ STATIC mp_obj_t route_delete(mp_obj_t interface_idx_in, mp_obj_t route_id_in) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(route_delete_obj, route_delete);
 
 /* Count the number of routes in an interface routing table */
-STATIC mp_obj_t route_count(mp_obj_t interface_idx_in) {
-    uint8_t interface_idx =   mp_obj_get_int(interface_idx_in);
-    if (interface_idx >= FW_NUM_INTERFACES) {
+STATIC mp_obj_t route_count(mp_obj_t interface_idx_in)
+{
+    uint8_t interface_idx = mp_obj_get_int(interface_idx_in);
+    if (interface_idx >= FW_NUM_INTERFACES)
+    {
         sddf_dprintf("WEBSERVER|LOG: %s\n",
-                    fw_os_err_str[OS_ERR_INVALID_INTERFACE]);
+                     fw_os_err_str[OS_ERR_INVALID_INTERFACE]);
         mp_raise_OSError(OS_ERR_INVALID_INTERFACE);
         return mp_const_none;
     }
@@ -248,42 +271,48 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(route_count_obj, route_count);
 
 /* Return nth route in interface routing table */
 STATIC mp_obj_t route_get_nth(mp_obj_t interface_idx_in,
-                              mp_obj_t route_idx_in) {
-    uint8_t interface_idx =   mp_obj_get_int(interface_idx_in);
-    if (interface_idx >= FW_NUM_INTERFACES) {
+                              mp_obj_t route_idx_in)
+{
+    uint8_t interface_idx = mp_obj_get_int(interface_idx_in);
+    if (interface_idx >= FW_NUM_INTERFACES)
+    {
         sddf_dprintf("WEBSERVER|LOG: %s\n",
-                    fw_os_err_str[OS_ERR_INVALID_INTERFACE]);
+                     fw_os_err_str[OS_ERR_INVALID_INTERFACE]);
         mp_raise_OSError(OS_ERR_INVALID_INTERFACE);
         return mp_const_none;
     }
 
     uint16_t route_idx = mp_obj_get_int(route_idx_in);
     if (route_idx >= webserver_state.interfaces[interface_idx].num_routes ||
-        route_idx >= webserver_state.interfaces[interface_idx].routing_table.capacity) {
+        route_idx >= webserver_state.interfaces[interface_idx].routing_list.capacity)
+    {
         sddf_dprintf("WEBSERVER|LOG: %s\n",
-                    fw_os_err_str[OS_ERR_INVALID_ROUTE_NUM]);
+                     fw_os_err_str[OS_ERR_INVALID_ROUTE_NUM]);
         mp_raise_OSError(OS_ERR_INVALID_ROUTE_NUM);
         return mp_const_none;
     }
 
     uint16_t valid_entries = 0;
     for (uint16_t i = 0;
-        i < webserver_state.interfaces[interface_idx].routing_table.capacity; i++) {
-        fw_routing_entry_t *entry =
-            (fw_routing_entry_t
-                *)(webserver_state.interfaces[interface_idx].routing_table.entries + i);
-        if (!entry->valid) {
-        continue;
+         i < webserver_state.interfaces[interface_idx].routing_list.capacity; i++)
+    {
+        routing_entry_node_t *entry =
+            (routing_entry_node_t
+                 *)(webserver_state.interfaces[interface_idx].routing_list.entries + i);
+        if (!entry->valid)
+        {
+            continue;
         }
 
-        if (valid_entries == route_idx) {
-        mp_obj_t tuple[5];
-        tuple[0] = mp_obj_new_int_from_uint(i);
-        tuple[1] = mp_obj_new_int_from_uint(entry->ip);
-        tuple[2] = mp_obj_new_int_from_uint(entry->subnet);
-        tuple[3] = mp_obj_new_int_from_uint(entry->next_hop);
-        tuple[4] = mp_obj_new_int_from_uint(entry->num_hops);
-        return mp_obj_new_tuple(5, tuple);
+        if (valid_entries == route_idx)
+        {
+            mp_obj_t tuple[5];
+            tuple[0] = mp_obj_new_int_from_uint(i);
+            tuple[1] = mp_obj_new_int_from_uint(entry->ip);
+            tuple[2] = mp_obj_new_int_from_uint(entry->subnet);
+            tuple[3] = mp_obj_new_int_from_uint(entry->next_hop);
+            tuple[4] = mp_obj_new_int_from_uint(entry->num_hops);
+            return mp_obj_new_tuple(5, tuple);
         }
 
         valid_entries++;
@@ -297,16 +326,19 @@ STATIC mp_obj_t route_get_nth(mp_obj_t interface_idx_in,
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(route_get_nth_obj, route_get_nth);
 
 /* Add a rule to a filter on an interface */
-STATIC mp_obj_t rule_add(mp_uint_t n_args, const mp_obj_t *args) {
-    if (n_args != 11) {
+STATIC mp_obj_t rule_add(mp_uint_t n_args, const mp_obj_t *args)
+{
+    if (n_args != 11)
+    {
         mp_raise_OSError(OS_ERR_INVALID_ARGUMENTS);
         return mp_const_none;
     }
 
     uint8_t interface_idx = mp_obj_get_int(args[0]);
-    if (interface_idx >= FW_NUM_INTERFACES) {
+    if (interface_idx >= FW_NUM_INTERFACES)
+    {
         sddf_dprintf("WEBSERVER|LOG: %s\n",
-                    fw_os_err_str[OS_ERR_INVALID_INTERFACE]);
+                     fw_os_err_str[OS_ERR_INVALID_INTERFACE]);
         mp_raise_OSError(OS_ERR_INVALID_INTERFACE);
         return mp_const_none;
     }
@@ -323,14 +355,17 @@ STATIC mp_obj_t rule_add(mp_uint_t n_args, const mp_obj_t *args) {
     uint8_t action = mp_obj_get_int(args[10]);
 
     uint8_t protocol_match = firewall_config.interfaces[interface_idx].num_filters;
-    for (uint8_t i = 0; i < firewall_config.interfaces[interface_idx].num_filters; i++) {
-        if (firewall_config.interfaces[interface_idx].filters[i].protocol == protocol) {
+    for (uint8_t i = 0; i < firewall_config.interfaces[interface_idx].num_filters; i++)
+    {
+        if (firewall_config.interfaces[interface_idx].filters[i].protocol == protocol)
+        {
             protocol_match = i;
             break;
         }
     }
 
-    if (protocol_match == firewall_config.interfaces[interface_idx].num_filters) {
+    if (protocol_match == firewall_config.interfaces[interface_idx].num_filters)
+    {
         sddf_dprintf("WEBSERVER|LOG: %s\n", fw_os_err_str[OS_ERR_INVALID_PROTOCOL]);
         mp_raise_OSError(OS_ERR_INVALID_PROTOCOL);
         return mp_const_none;
@@ -350,7 +385,8 @@ STATIC mp_obj_t rule_add(mp_uint_t n_args, const mp_obj_t *args) {
         microkit_ppcall(firewall_config.interfaces[interface_idx].filters[protocol_match].ch,
                         microkit_msginfo_new(FW_ADD_RULE, 10));
     fw_os_err_t os_err = filter_err_to_os_err(seL4_GetMR(FILTER_RET_ERR));
-    if (os_err != OS_ERR_OKAY) {
+    if (os_err != OS_ERR_OKAY)
+    {
         sddf_dprintf("WEBSERVER|LOG: %s\n", fw_os_err_str[os_err]);
         mp_raise_OSError(os_err);
         return mp_obj_new_int_from_uint(os_err);
@@ -365,11 +401,13 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_VAR(rule_add_obj, 9, rule_add);
 
 /* Delete a filter on an interface */
 STATIC mp_obj_t rule_delete(mp_obj_t interface_idx_in, mp_obj_t rule_id_in,
-                            mp_obj_t protocol_in) {
+                            mp_obj_t protocol_in)
+{
     uint8_t interface_idx = mp_obj_get_int(interface_idx_in);
-    if (interface_idx >= FW_NUM_INTERFACES) {
+    if (interface_idx >= FW_NUM_INTERFACES)
+    {
         sddf_dprintf("WEBSERVER|LOG: %s\n",
-                    fw_os_err_str[OS_ERR_INVALID_INTERFACE]);
+                     fw_os_err_str[OS_ERR_INVALID_INTERFACE]);
         mp_raise_OSError(OS_ERR_INVALID_INTERFACE);
         return mp_const_none;
     }
@@ -377,14 +415,17 @@ STATIC mp_obj_t rule_delete(mp_obj_t interface_idx_in, mp_obj_t rule_id_in,
     uint16_t rule_id = mp_obj_get_int(rule_id_in);
     uint16_t protocol = mp_obj_get_int(protocol_in);
     uint8_t protocol_match = firewall_config.interfaces[interface_idx].num_filters;
-    for (uint8_t i = 0; i < firewall_config.interfaces[interface_idx].num_filters; i++) {
-        if (firewall_config.interfaces[interface_idx].filters[i].protocol == protocol) {
+    for (uint8_t i = 0; i < firewall_config.interfaces[interface_idx].num_filters; i++)
+    {
+        if (firewall_config.interfaces[interface_idx].filters[i].protocol == protocol)
+        {
             protocol_match = i;
             break;
         }
     }
 
-    if (protocol_match == firewall_config.interfaces[interface_idx].num_filters) {
+    if (protocol_match == firewall_config.interfaces[interface_idx].num_filters)
+    {
         sddf_dprintf("WEBSERVER|LOG: %s\n", fw_os_err_str[OS_ERR_INVALID_PROTOCOL]);
         mp_raise_OSError(OS_ERR_INVALID_PROTOCOL);
         return mp_const_none;
@@ -395,7 +436,8 @@ STATIC mp_obj_t rule_delete(mp_obj_t interface_idx_in, mp_obj_t rule_id_in,
         microkit_ppcall(firewall_config.interfaces[interface_idx].filters[protocol_match].ch,
                         microkit_msginfo_new(FW_DEL_RULE, 2));
     fw_os_err_t os_err = filter_err_to_os_err(seL4_GetMR(FILTER_RET_ERR));
-    if (os_err != OS_ERR_OKAY) {
+    if (os_err != OS_ERR_OKAY)
+    {
         sddf_dprintf("WEBSERVER|LOG: %s\n", fw_os_err_str[os_err]);
         mp_raise_OSError(os_err);
         return mp_obj_new_int_from_uint(os_err);
@@ -408,18 +450,22 @@ STATIC mp_obj_t rule_delete(mp_obj_t interface_idx_in, mp_obj_t rule_id_in,
 STATIC MP_DEFINE_CONST_FUN_OBJ_3(rule_delete_obj, rule_delete);
 
 /* Get number of filter rules for a filter */
-STATIC mp_obj_t rule_count(mp_obj_t interface_idx_in, mp_obj_t protocol_in) {
+STATIC mp_obj_t rule_count(mp_obj_t interface_idx_in, mp_obj_t protocol_in)
+{
     uint8_t interface_idx = mp_obj_get_int(interface_idx_in);
-    if (interface_idx >= FW_NUM_INTERFACES) {
+    if (interface_idx >= FW_NUM_INTERFACES)
+    {
         sddf_dprintf("WEBSERVER|LOG: %s\n",
-                    fw_os_err_str[OS_ERR_INVALID_INTERFACE]);
+                     fw_os_err_str[OS_ERR_INVALID_INTERFACE]);
         mp_raise_OSError(OS_ERR_INVALID_INTERFACE);
         return mp_const_none;
     }
 
     uint16_t protocol = mp_obj_get_int(protocol_in);
-    for (uint8_t i = 0; i < firewall_config.interfaces[interface_idx].num_filters; i++) {
-        if (firewall_config.interfaces[interface_idx].filters[i].protocol == protocol) {
+    for (uint8_t i = 0; i < firewall_config.interfaces[interface_idx].num_filters; i++)
+    {
+        if (firewall_config.interfaces[interface_idx].filters[i].protocol == protocol)
+        {
             return mp_obj_new_int_from_uint(webserver_state.interfaces[interface_idx].num_rules[i]);
         }
     }
@@ -434,11 +480,13 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_2(rule_count_obj, rule_count);
 /* Set interface filter default action */
 STATIC mp_obj_t filter_set_default_action(mp_obj_t interface_idx_in,
                                           mp_obj_t protocol_in,
-                                          mp_obj_t action_in) {
+                                          mp_obj_t action_in)
+{
     uint8_t interface_idx = mp_obj_get_int(interface_idx_in);
-    if (interface_idx >= FW_NUM_INTERFACES) {
+    if (interface_idx >= FW_NUM_INTERFACES)
+    {
         sddf_dprintf("WEBSERVER|LOG: %s\n",
-                    fw_os_err_str[OS_ERR_INVALID_INTERFACE]);
+                     fw_os_err_str[OS_ERR_INVALID_INTERFACE]);
         mp_raise_OSError(OS_ERR_INVALID_INTERFACE);
         return mp_const_none;
     }
@@ -446,14 +494,17 @@ STATIC mp_obj_t filter_set_default_action(mp_obj_t interface_idx_in,
     uint16_t protocol = mp_obj_get_int(protocol_in);
     uint8_t action = mp_obj_get_int(action_in);
     uint8_t protocol_match = firewall_config.interfaces[interface_idx].num_filters;
-    for (uint8_t i = 0; i < firewall_config.interfaces[interface_idx].num_filters; i++) {
-        if (firewall_config.interfaces[interface_idx].filters[i].protocol == protocol) {
+    for (uint8_t i = 0; i < firewall_config.interfaces[interface_idx].num_filters; i++)
+    {
+        if (firewall_config.interfaces[interface_idx].filters[i].protocol == protocol)
+        {
             protocol_match = i;
             break;
         }
     }
 
-    if (protocol_match == firewall_config.interfaces[interface_idx].num_filters) {
+    if (protocol_match == firewall_config.interfaces[interface_idx].num_filters)
+    {
         sddf_dprintf("WEBSERVER|LOG: %s\n", fw_os_err_str[OS_ERR_INVALID_PROTOCOL]);
         mp_raise_OSError(OS_ERR_INVALID_PROTOCOL);
         return mp_const_none;
@@ -464,7 +515,8 @@ STATIC mp_obj_t filter_set_default_action(mp_obj_t interface_idx_in,
         microkit_ppcall(firewall_config.interfaces[interface_idx].filters[protocol_match].ch,
                         microkit_msginfo_new(FW_SET_DEFAULT_ACTION, 1));
     fw_os_err_t os_err = filter_err_to_os_err(seL4_GetMR(FILTER_RET_ERR));
-    if (os_err != OS_ERR_OKAY) {
+    if (os_err != OS_ERR_OKAY)
+    {
         sddf_dprintf("WEBSERVER|LOG: %s\n", fw_os_err_str[os_err]);
         mp_raise_OSError(os_err);
         return mp_obj_new_int_from_uint(os_err);
@@ -479,18 +531,22 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_3(filter_set_default_action_obj,
 
 /* Get interface filter default action */
 STATIC mp_obj_t filter_get_default_action(mp_obj_t interface_idx_in,
-                                          mp_obj_t protocol_in) {
+                                          mp_obj_t protocol_in)
+{
     uint8_t interface_idx = mp_obj_get_int(interface_idx_in);
-    if (interface_idx >= FW_NUM_INTERFACES) {
+    if (interface_idx >= FW_NUM_INTERFACES)
+    {
         sddf_dprintf("WEBSERVER|LOG: %s\n",
-                    fw_os_err_str[OS_ERR_INVALID_INTERFACE]);
+                     fw_os_err_str[OS_ERR_INVALID_INTERFACE]);
         mp_raise_OSError(OS_ERR_INVALID_INTERFACE);
         return mp_const_none;
     }
 
     uint16_t protocol = mp_obj_get_int(protocol_in);
-    for (uint8_t i = 0; i < firewall_config.interfaces[interface_idx].num_filters; i++) {
-        if (firewall_config.interfaces[interface_idx].filters[i].protocol == protocol) {
+    for (uint8_t i = 0; i < firewall_config.interfaces[interface_idx].num_filters; i++)
+    {
+        if (firewall_config.interfaces[interface_idx].filters[i].protocol == protocol)
+        {
             return mp_obj_new_int_from_uint(
                 webserver_state.interfaces[interface_idx].filter_states[i].default_action);
         }
@@ -506,11 +562,13 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_2(filter_get_default_action_obj,
 
 /* Get the nth interface filter rule */
 STATIC mp_obj_t rule_get_nth(mp_obj_t interface_idx_in, mp_obj_t protocol_in,
-                             mp_obj_t rule_idx_in) {
+                             mp_obj_t rule_idx_in)
+{
     uint8_t interface_idx = mp_obj_get_int(interface_idx_in);
-    if (interface_idx >= FW_NUM_INTERFACES) {
+    if (interface_idx >= FW_NUM_INTERFACES)
+    {
         sddf_dprintf("WEBSERVER|LOG: %s\n",
-                    fw_os_err_str[OS_ERR_INVALID_INTERFACE]);
+                     fw_os_err_str[OS_ERR_INVALID_INTERFACE]);
         mp_raise_OSError(OS_ERR_INVALID_INTERFACE);
         return mp_const_none;
     }
@@ -518,47 +576,54 @@ STATIC mp_obj_t rule_get_nth(mp_obj_t interface_idx_in, mp_obj_t protocol_in,
     uint16_t protocol = mp_obj_get_int(protocol_in);
     uint16_t rule_idx = mp_obj_get_int(rule_idx_in);
     uint8_t protocol_match = firewall_config.interfaces[interface_idx].num_filters;
-    for (uint8_t i = 0; i < firewall_config.interfaces[interface_idx].num_filters; i++) {
-        if (firewall_config.interfaces[interface_idx].filters[i].protocol == protocol) {
+    for (uint8_t i = 0; i < firewall_config.interfaces[interface_idx].num_filters; i++)
+    {
+        if (firewall_config.interfaces[interface_idx].filters[i].protocol == protocol)
+        {
             protocol_match = i;
             break;
         }
     }
 
-    if (protocol_match == firewall_config.interfaces[interface_idx].num_filters) {
+    if (protocol_match == firewall_config.interfaces[interface_idx].num_filters)
+    {
         sddf_dprintf("WEBSERVER|LOG: %s\n", fw_os_err_str[OS_ERR_INVALID_PROTOCOL]);
         mp_raise_OSError(OS_ERR_INVALID_PROTOCOL);
         return mp_const_none;
     }
 
     if (rule_idx >= webserver_state.interfaces[interface_idx].num_rules[protocol_match] ||
-        rule_idx >= firewall_config.interfaces[interface_idx].filters[protocol_match].rules_capacity) {
+        rule_idx >= firewall_config.interfaces[interface_idx].filters[protocol_match].rules_capacity)
+    {
         sddf_dprintf("WEBSERVER|LOG: %s\n", fw_os_err_str[OS_ERR_INVALID_RULE_NUM]);
         mp_raise_OSError(OS_ERR_INVALID_RULE_NUM);
         return mp_const_none;
     }
 
     uint16_t valid_rules = 0;
-    for (uint16_t i = 0; i < webserver_state.interfaces[interface_idx].filter_states[protocol_match].rules_capacity; i++) {
-            fw_rule_t *rule = (fw_rule_t *)(webserver_state.interfaces[interface_idx].filter_states[protocol_match].rules + i);
-            if (!rule->valid) {
-                continue;
-            }
+    for (uint16_t i = 0; i < webserver_state.interfaces[interface_idx].filter_states[protocol_match].rules_capacity; i++)
+    {
+        fw_rule_t *rule = (fw_rule_t *)(webserver_state.interfaces[interface_idx].filter_states[protocol_match].rules + i);
+        if (!rule->valid)
+        {
+            continue;
+        }
 
-            if (valid_rules == rule_idx) {
-                mp_obj_t tuple[10];
-                tuple[0] = mp_obj_new_int_from_uint(i);
-                tuple[1] = mp_obj_new_int_from_uint(rule->src_ip);
-                tuple[2] = mp_obj_new_int_from_uint(rule->src_port);
-                tuple[3] = mp_obj_new_int_from_uint(rule->src_port_any);
-                tuple[4] = mp_obj_new_int_from_uint(rule->dst_ip);
-                tuple[5] = mp_obj_new_int_from_uint(rule->dst_port);
-                tuple[6] = mp_obj_new_int_from_uint(rule->dst_port_any);
-                tuple[7] = mp_obj_new_int_from_uint(rule->src_subnet);
-                tuple[8] = mp_obj_new_int_from_uint(rule->dst_subnet);
-                tuple[9] = mp_obj_new_int_from_uint(rule->action);
-                return mp_obj_new_tuple(10, tuple);
-            }
+        if (valid_rules == rule_idx)
+        {
+            mp_obj_t tuple[10];
+            tuple[0] = mp_obj_new_int_from_uint(i);
+            tuple[1] = mp_obj_new_int_from_uint(rule->src_ip);
+            tuple[2] = mp_obj_new_int_from_uint(rule->src_port);
+            tuple[3] = mp_obj_new_int_from_uint(rule->src_port_any);
+            tuple[4] = mp_obj_new_int_from_uint(rule->dst_ip);
+            tuple[5] = mp_obj_new_int_from_uint(rule->dst_port);
+            tuple[6] = mp_obj_new_int_from_uint(rule->dst_port_any);
+            tuple[7] = mp_obj_new_int_from_uint(rule->src_subnet);
+            tuple[8] = mp_obj_new_int_from_uint(rule->dst_subnet);
+            tuple[9] = mp_obj_new_int_from_uint(rule->action);
+            return mp_obj_new_tuple(10, tuple);
+        }
 
         valid_rules++;
     }
